@@ -11,7 +11,7 @@ Application qui, à partir d'un **profil d'entreprise structuré** et d'un **doc
 | 1 | Schéma de données + CRUD profils (auth, identité, finances versionnées, projets, personnel, matériel, fichiers) | ✅ |
 | 2 | Import AO + extraction de la grille de conformité (PDF/Word, détection scan, analyse IA auditable) | ✅ |
 | 3 | Moteur de matching profil ↔ exigences (couvertures/écarts, anti-hallucination, rapports traçables) | ✅ |
-| 4 | Génération des livrables (IA) — document d'analyse go/no-go ✅, proposition technique ✅ ; proposition commerciale bloquée (décision bordereau de prix) | 🟡 |
+| 4 | Génération des livrables — analyse go/no-go ✅, proposition technique ✅, proposition commerciale (bordereau importé) ✅ | ✅ |
 | 5 | Export Word ✅ + relecture (édition/validation) ✅ ; envoi email et charte graphique ⬜ | 🟡 |
 
 ## Démarrage rapide
@@ -76,11 +76,20 @@ Statuts : `UPLOADED` → `TEXT_EXTRACTED` → `GRID_READY` ; `NEEDS_OCR` si PDF 
 
 Chaque rapport contient : le statut de chaque exigence (`COVERED`/`PARTIAL`/`NOT_COVERED`), les éléments du profil qui la couvrent (IDs validés côté serveur — aucun élément inventé), la justification, l'écart, un résumé chiffré, plus l'instantané du profil et de la grille utilisés (traçabilité).
 
+### Bordereau de prix (proposition commerciale)
+| Méthode | Route | Description |
+|---|---|---|
+| GET | `/api/tenders/:id/price-schedule/template` | **Template Excel** à remplir (exemples + feuille d'instructions) |
+| POST | `/api/tenders/:id/price-schedule?taxRate=0.18` | Importer le bordereau rempli (multipart `file`) — validation ligne par ligne, totaux recalculés côté serveur, TVA 18 % par défaut |
+| GET | `/api/tenders/:id/price-schedule` | Version courante |
+| GET | `/api/tenders/:id/price-schedule/history` | Historique des versions (chaque ré-import crée une version) |
+
 ### Livrables (itérations 4-5)
 | Méthode | Route | Description |
 |---|---|---|
 | POST | `/api/tenders/:id/deliverables/analysis` | Générer le document d'analyse (forces/faiblesses, écarts, go/no-go) à partir du dernier matching |
 | POST | `/api/tenders/:id/deliverables/technical` | Générer la proposition technique — **409 avec la liste des écarts** tant que `acknowledgeGaps=true` n'est pas envoyé (spec 7.2) |
+| POST | `/api/tenders/:id/deliverables/commercial` | Générer la proposition commerciale depuis le bordereau importé — **assemblage déterministe, aucun LLM sur les prix** ; montant TTC en toutes lettres ; conditions commerciales paramétrables (`offerValidityDays`, `paymentTerms`, `warrantyTerms`, `executionDelay`) |
 | GET | `/api/tenders/:id/deliverables` | Lister les livrables générés |
 | GET | `/api/tenders/:id/deliverables/:id` | Contenu structuré + Markdown |
 | GET | `/api/tenders/:id/deliverables/:id/markdown` | Rendu Markdown brut (relecture) |

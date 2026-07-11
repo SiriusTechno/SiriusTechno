@@ -27,6 +27,7 @@ model User {
   changeLogs      ProfileChangeLog[]
   matchingReports MatchingReport[]
   Deliverable     Deliverable[]
+  PriceSchedule   PriceSchedule[]
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +311,7 @@ model StoredFile {
   equipmentPhotoOf     EquipmentItem?          @relation("EquipmentPhoto")
   ownershipProofOf     EquipmentItem?          @relation("OwnershipProof")
   tenderSource         Tender?
+  PriceSchedule        PriceSchedule?
 
   @@index([profileId])
 }
@@ -345,9 +347,10 @@ model Tender {
   grid            ComplianceGrid?
   matchingReports MatchingReport[]
 
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  Deliverable Deliverable[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  Deliverable   Deliverable[]
+  PriceSchedule PriceSchedule[]
 
   @@index([profileId])
 }
@@ -412,12 +415,18 @@ model Deliverable {
 
   type DeliverableType
 
-  // Traçabilité (spec 10) : généré par qui, à partir de quel matching
-  matchingReport   MatchingReport @relation(fields: [matchingReportId], references: [id])
-  matchingReportId String
-  createdBy        User           @relation(fields: [createdById], references: [id])
-  createdById      String
-  model            String
+  // Traçabilité (spec 10) : généré par qui, à partir de quel matching.
+  // Optionnel : la proposition commerciale dérive du bordereau de prix,
+  // pas du matching.
+  matchingReport   MatchingReport? @relation(fields: [matchingReportId], references: [id])
+  matchingReportId String?
+
+  // Proposition commerciale : bordereau de prix utilisé (spec 7.3)
+  priceSchedule   PriceSchedule? @relation(fields: [priceScheduleId], references: [id])
+  priceScheduleId String?
+  createdBy       User           @relation(fields: [createdById], references: [id])
+  createdById     String
+  model           String
 
   content  Json // sections structurées (source de vérité)
   markdown String // rendu lisible, dérivé de content
@@ -431,6 +440,41 @@ model Deliverable {
   updatedAt DateTime @updatedAt
 
   @@index([tenderId, type, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Bordereau de prix (spec 7.3) — importé depuis le template Excel fourni.
+// Versionné comme les finances : chaque ré-import crée une nouvelle version.
+// ---------------------------------------------------------------------------
+
+model PriceSchedule {
+  id       String @id @default(uuid())
+  tender   Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  tenderId String
+
+  items    Json // lignes [{number, designation, unit, quantity, unitPrice, totalPrice}]
+  currency String @default("XOF")
+
+  totalExclTax Decimal @db.Decimal(18, 2) // total HT
+  taxRate      Decimal @db.Decimal(5, 4) // ex: 0.18 (TVA CI)
+  taxAmount    Decimal @db.Decimal(18, 2)
+  totalInclTax Decimal @db.Decimal(18, 2) // total TTC
+
+  sourceFile   StoredFile? @relation(fields: [sourceFileId], references: [id])
+  sourceFileId String?     @unique
+
+  version   Int     @default(1)
+  isCurrent Boolean @default(true)
+
+  createdBy   User   @relation(fields: [createdById], references: [id])
+  createdById String
+
+  deliverables Deliverable[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenderId, version])
+  @@index([tenderId, isCurrent])
 }
 
 // ---------------------------------------------------------------------------

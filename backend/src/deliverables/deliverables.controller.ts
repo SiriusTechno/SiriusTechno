@@ -15,6 +15,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser, JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DeliverablesService } from './deliverables.service';
 import {
+  GenerateCommercialDto,
   GenerateTechnicalDto,
   UpdateDeliverableDto,
 } from './dto/deliverable.dto';
@@ -45,6 +46,16 @@ export class DeliverablesController {
       tenderId,
       dto.acknowledgeGaps ?? false,
     );
+  }
+
+  /** Génère la proposition commerciale (spec 7.3) depuis le bordereau importé. */
+  @Post('commercial')
+  generateCommercial(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tenderId', ParseUUIDPipe) tenderId: string,
+    @Body() dto: GenerateCommercialDto,
+  ) {
+    return this.service.generateCommercial(user.userId, tenderId, dto);
   }
 
   /** Relecture : correction du contenu structuré (spec 8). */

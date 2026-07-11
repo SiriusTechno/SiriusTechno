@@ -9,7 +9,7 @@ Le cœur du produit est le moteur de matching profil ↔ exigences de l'AO
 1. ✅ Schéma de données (spec 4.1) + CRUD profils — `backend/`
 2. ✅ Extraction AO + grille de conformité (spec 5) — `backend/src/tenders/`
 3. ✅ Moteur de matching (spec 6) — `backend/src/matching/`
-4. 🟡 Génération des livrables (spec 7) — document d'analyse 7.1 ✅ + proposition technique 7.2 ✅ (`backend/src/deliverables/`) ; proposition commerciale 7.3 bloquée (décision bordereau de prix)
+4. ✅ Génération des livrables (spec 7) — analyse 7.1, technique 7.2, commerciale 7.3 (`backend/src/deliverables/`) ; bordereau de prix importé via template Excel (`backend/src/price-schedule/`)
 5. 🟡 Export Word + relecture (spec 8) — docx ✅, édition/validation ✅ (`REQUIRE_REVIEW_BEFORE_EXPORT`) ; envoi email ⬜ ; charte graphique par profil ⬜
 
 ## Stack
@@ -43,7 +43,10 @@ npm run build
 - Le LLM ne fait qu'extraire (jamais rédiger) à cette étape — appels extraction/génération séparés (spec 9).
 - Matching anti-hallucination : le LLM ne peut citer que des IDs d'éléments réels du profil ; `MatchingService.sanitize` retire tout ID inventé et requalifie l'exigence. Chaque rapport garde l'instantané du profil et de la grille utilisés (`MatchingReport`).
 
+## Décisions actées (spec section 11)
+
+- Bordereau de prix : **import** d'un template Excel fourni par l'application (`GET .../price-schedule/template`). Versionné comme les finances. La proposition commerciale est assemblée de façon déterministe (aucun LLM sur les prix).
+
 ## Décisions en attente (spec section 11)
 
-- Bordereau de prix : saisie manuelle / import / modèle de coûts ? (bloque la proposition commerciale)
 - Outil interne SIRIUS ou produit multi-clients ? (le modèle de données est déjà multi-profils)

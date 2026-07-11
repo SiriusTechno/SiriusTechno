@@ -12,6 +12,8 @@ import {
   WidthType,
 } from 'docx';
 import { AnalysisDocument } from './analysis-document.schema';
+import { CommercialProposal } from './commercial-proposal';
+import { formatAmount } from './french-number-words';
 import { TechnicalProposal } from './technical-proposal.schema';
 
 const RECOMMENDATION_LABELS: Record<string, string> = {
@@ -113,6 +115,57 @@ export class DocxExportService {
         children.push(this.bullet(gap, 0));
       }
     }
+
+    return Packer.toBuffer(new Document({ sections: [{ children }] }));
+  }
+
+  async renderCommercial(doc: CommercialProposal): Promise<Buffer> {
+    const children: (Paragraph | Table)[] = [
+      this.title(doc.title),
+      this.subtitle(doc.companyName),
+      ...this.paragraphs(doc.submissionText),
+      this.heading('Bordereau des prix'),
+      this.table(
+        ['N°', 'Désignation', 'Unité', 'Quantité', 'Prix unitaire HT', 'Prix total HT'],
+        doc.items.map((i) => [
+          String(i.number),
+          i.designation,
+          i.unit || '—',
+          formatAmount(i.quantity),
+          formatAmount(i.unitPrice),
+          formatAmount(i.totalPrice),
+        ]),
+      ),
+      this.heading('Récapitulatif'),
+      this.table(
+        ['', `Montant (${doc.currency})`],
+        [
+          ['Total HT', formatAmount(doc.totals.totalExclTax)],
+          [
+            `TVA (${(doc.totals.taxRate * 100).toFixed(2).replace(/\.?0+$/, '')} %)`,
+            formatAmount(doc.totals.taxAmount),
+          ],
+          ['Total TTC', formatAmount(doc.totals.totalInclTax)],
+        ],
+      ),
+      new Paragraph({
+        spacing: { before: 200 },
+        children: [
+          new TextRun({
+            text: `Arrêté le présent bordereau à la somme de ${doc.totals.totalInclTaxInWords} francs CFA toutes taxes comprises.`,
+            bold: true,
+          }),
+        ],
+      }),
+      this.heading('Conditions commerciales'),
+      this.bullet(
+        `Validité de l'offre : ${doc.conditions.offerValidityDays} jours à compter de la date de dépôt.`,
+        0,
+      ),
+      this.bullet(`Modalités de paiement : ${doc.conditions.paymentTerms}`, 0),
+      this.bullet(`Garanties : ${doc.conditions.warrantyTerms}`, 0),
+      this.bullet(`Délai d'exécution : ${doc.conditions.executionDelay}`, 0),
+    ];
 
     return Packer.toBuffer(new Document({ sections: [{ children }] }));
   }

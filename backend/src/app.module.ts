@@ -6,6 +6,7 @@ import { FilesModule } from './files/files.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { DeliverablesModule } from './deliverables/deliverables.module';
 import { MatchingModule } from './matching/matching.module';
+import { PriceScheduleModule } from './price-schedule/price-schedule.module';
 import { TendersModule } from './tenders/tenders.module';
 
 @Module({
@@ -17,6 +18,7 @@ import { TendersModule } from './tenders/tenders.module';
     ProfilesModule,
     TendersModule,
     MatchingModule,
+    PriceScheduleModule,
     DeliverablesModule,
   ],
 })

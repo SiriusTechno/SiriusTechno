@@ -11,7 +11,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AnalysisDocument } from './analysis-document.schema';
 import { AnalysisGenerationService } from './analysis-generation.service';
 import { renderAnalysisMarkdown } from './analysis-markdown';
+import {
+  buildCommercialProposal,
+  CommercialItem,
+  CommercialProposal,
+  DEFAULT_CONDITIONS,
+  renderCommercialMarkdown,
+} from './commercial-proposal';
 import { DocxExportService } from './docx-export.service';
+import { GenerateCommercialDto } from './dto/deliverable.dto';
 import { renderTechnicalMarkdown } from './technical-markdown';
 import { TechnicalGenerationService } from './technical-generation.service';
 import { TechnicalProposal } from './technical-proposal.schema';
@@ -151,6 +159,58 @@ export class DeliverablesService {
     });
   }
 
+  /**
+   * Génère la proposition commerciale (spec 7.3) : assemblage déterministe
+   * à partir du bordereau importé — aucun LLM sur les prix.
+   */
+  async generateCommercial(
+    userId: string,
+    tenderId: string,
+    dto: GenerateCommercialDto,
+  ) {
+    const tender = await this.assertOwnedTender(userId, tenderId);
+
+    const schedule = await this.prisma.priceSchedule.findFirst({
+      where: { tenderId, isCurrent: true },
+    });
+    if (!schedule) {
+      throw new BadRequestException(
+        "Importez d'abord le bordereau de prix (GET .../price-schedule/template puis POST .../price-schedule)",
+      );
+    }
+
+    const doc = buildCommercialProposal({
+      companyName: tender.profile.legalName,
+      tenderTitle: tender.title ?? "Appel d'offres",
+      currency: schedule.currency,
+      items: schedule.items as unknown as CommercialItem[],
+      totalExclTax: Number(schedule.totalExclTax),
+      taxRate: Number(schedule.taxRate),
+      taxAmount: Number(schedule.taxAmount),
+      totalInclTax: Number(schedule.totalInclTax),
+      conditions: {
+        offerValidityDays:
+          dto.offerValidityDays ?? DEFAULT_CONDITIONS.offerValidityDays,
+        paymentTerms: dto.paymentTerms ?? DEFAULT_CONDITIONS.paymentTerms,
+        warrantyTerms: dto.warrantyTerms ?? DEFAULT_CONDITIONS.warrantyTerms,
+        executionDelay:
+          dto.executionDelay ?? DEFAULT_CONDITIONS.executionDelay,
+      },
+    });
+
+    return this.prisma.deliverable.create({
+      data: {
+        tenderId,
+        type: DeliverableType.COMMERCIAL_PROPOSAL,
+        priceScheduleId: schedule.id,
+        createdById: userId,
+        model: 'deterministic', // pas d'IA : montants issus du bordereau
+        content: doc as unknown as Prisma.InputJsonValue,
+        markdown: renderCommercialMarkdown(doc),
+      },
+    });
+  }
+
   /** Relecture (spec 8) : correction du contenu — le Markdown est re-rendu. */
   async update(
     userId: string,
@@ -159,10 +219,7 @@ export class DeliverablesService {
     content: Record<string, unknown>,
   ) {
     const deliverable = await this.findOne(userId, tenderId, deliverableId);
-    const markdown =
-      deliverable.type === DeliverableType.ANALYSIS
-        ? renderAnalysisMarkdown(content as unknown as AnalysisDocument)
-        : renderTechnicalMarkdown(content as unknown as TechnicalProposal);
+    const markdown = this.renderMarkdown(deliverable.type, content);
 
     return this.prisma.deliverable.update({
       where: { id: deliverableId },
@@ -201,26 +258,53 @@ export class DeliverablesService {
       include: { profile: true },
     });
 
-    const buffer =
-      deliverable.type === DeliverableType.ANALYSIS
-        ? await this.docxExport.renderAnalysis(
-            deliverable.content as unknown as AnalysisDocument,
-            tender.profile.legalName,
-          )
-        : await this.docxExport.renderTechnical(
-            deliverable.content as unknown as TechnicalProposal,
-            tender.profile.legalName,
-          );
-
-    const slug =
-      deliverable.type === DeliverableType.ANALYSIS
-        ? 'analyse'
-        : 'proposition-technique';
+    let buffer: Buffer;
+    let slug: string;
+    switch (deliverable.type) {
+      case DeliverableType.ANALYSIS:
+        buffer = await this.docxExport.renderAnalysis(
+          deliverable.content as unknown as AnalysisDocument,
+          tender.profile.legalName,
+        );
+        slug = 'analyse';
+        break;
+      case DeliverableType.TECHNICAL_PROPOSAL:
+        buffer = await this.docxExport.renderTechnical(
+          deliverable.content as unknown as TechnicalProposal,
+          tender.profile.legalName,
+        );
+        slug = 'proposition-technique';
+        break;
+      case DeliverableType.COMMERCIAL_PROPOSAL:
+        buffer = await this.docxExport.renderCommercial(
+          deliverable.content as unknown as CommercialProposal,
+        );
+        slug = 'proposition-commerciale';
+        break;
+    }
     return {
       filename: `${slug}-${deliverableId.slice(0, 8)}.docx`,
       buffer,
       reviewed: !!deliverable.reviewedAt,
     };
+  }
+
+  private renderMarkdown(
+    type: DeliverableType,
+    content: Record<string, unknown>,
+  ): string {
+    switch (type) {
+      case DeliverableType.ANALYSIS:
+        return renderAnalysisMarkdown(content as unknown as AnalysisDocument);
+      case DeliverableType.TECHNICAL_PROPOSAL:
+        return renderTechnicalMarkdown(
+          content as unknown as TechnicalProposal,
+        );
+      case DeliverableType.COMMERCIAL_PROPOSAL:
+        return renderCommercialMarkdown(
+          content as unknown as CommercialProposal,
+        );
+    }
   }
 
   async findAll(userId: string, tenderId: string) {

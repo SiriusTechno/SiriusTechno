@@ -1,4 +1,12 @@
-import { IsBoolean, IsObject, IsOptional } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class GenerateTechnicalDto {
   /**
@@ -9,6 +17,27 @@ export class GenerateTechnicalDto {
   @IsOptional()
   @IsBoolean()
   acknowledgeGaps?: boolean;
+}
+
+export class GenerateCommercialDto {
+  /** Conditions commerciales — valeurs par défaut raisonnables si omises. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  offerValidityDays?: number;
+
+  @IsOptional()
+  @IsString()
+  paymentTerms?: string;
+
+  @IsOptional()
+  @IsString()
+  warrantyTerms?: string;
+
+  @IsOptional()
+  @IsString()
+  executionDelay?: string;
 }
 
 export class UpdateDeliverableDto {
