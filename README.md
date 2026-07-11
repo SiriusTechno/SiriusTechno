@@ -10,7 +10,7 @@ Application qui, à partir d'un **profil d'entreprise structuré** et d'un **doc
 |---|---|---|
 | 1 | Schéma de données + CRUD profils (auth, identité, finances versionnées, projets, personnel, matériel, fichiers) | ✅ |
 | 2 | Import AO + extraction de la grille de conformité (PDF/Word, détection scan, analyse IA auditable) | ✅ |
-| 3 | Moteur de matching profil ↔ exigences | ⬜ |
+| 3 | Moteur de matching profil ↔ exigences (couvertures/écarts, anti-hallucination, rapports traçables) | ✅ |
 | 4 | Génération des livrables (IA) | ⬜ |
 | 5 | Export Word + relecture + envoi email | ⬜ |
 
@@ -65,6 +65,16 @@ Toutes les routes (sauf `/auth/*`) exigent un header `Authorization: Bearer <tok
 | DELETE | `/api/tenders/:id` | Supprimer |
 
 Statuts : `UPLOADED` → `TEXT_EXTRACTED` → `GRID_READY` ; `NEEDS_OCR` si PDF scanné détecté (OCR à venir) ; `FAILED` avec `extractionError` en français.
+
+### Matching profil ↔ exigences (itération 3)
+| Méthode | Route | Description |
+|---|---|---|
+| POST | `/api/tenders/:id/matching` | Lancer le matching (exige une grille `GRID_READY`) |
+| GET | `/api/tenders/:id/matching` | Dernier rapport : exigences couvertes / partielles / non couvertes |
+| GET | `/api/tenders/:id/matching/history` | Historique des rapports |
+| GET | `/api/tenders/:id/matching/:reportId` | Un rapport précis |
+
+Chaque rapport contient : le statut de chaque exigence (`COVERED`/`PARTIAL`/`NOT_COVERED`), les éléments du profil qui la couvrent (IDs validés côté serveur — aucun élément inventé), la justification, l'écart, un résumé chiffré, plus l'instantané du profil et de la grille utilisés (traçabilité).
 
 ### Fichiers (documents sensibles)
 - `POST /api/files?profileId=&category=` — upload multipart (`file`), types autorisés : PDF, Word, images ; max 25 Mo

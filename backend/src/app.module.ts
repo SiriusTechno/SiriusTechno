@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { FilesModule } from './files/files.module';
 import { ProfilesModule } from './profiles/profiles.module';
+import { MatchingModule } from './matching/matching.module';
 import { TendersModule } from './tenders/tenders.module';
 
 @Module({
@@ -14,6 +15,7 @@ import { TendersModule } from './tenders/tenders.module';
     FilesModule,
     ProfilesModule,
     TendersModule,
+    MatchingModule,
   ],
 })
 export class AppModule {}

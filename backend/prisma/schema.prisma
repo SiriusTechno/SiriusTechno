@@ -22,9 +22,10 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  profiles   CompanyProfile[]
-  files      StoredFile[]
-  changeLogs ProfileChangeLog[]
+  profiles        CompanyProfile[]
+  files           StoredFile[]
+  changeLogs      ProfileChangeLog[]
+  matchingReports MatchingReport[]
 }
 
 // ---------------------------------------------------------------------------
@@ -340,12 +341,37 @@ model Tender {
   pageCount       Int?
   extractionError String?
 
-  grid ComplianceGrid?
+  grid            ComplianceGrid?
+  matchingReports MatchingReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([profileId])
+}
+
+// ---------------------------------------------------------------------------
+// Moteur de matching profil ↔ exigences (spec 6) — cœur du produit.
+// Chaque exécution produit un rapport horodaté et traçable (spec 10) :
+// qui l'a généré, sur quelle grille et quel instantané du profil.
+// ---------------------------------------------------------------------------
+
+model MatchingReport {
+  id       String @id @default(uuid())
+  tender   Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  tenderId String
+
+  createdBy   User   @relation(fields: [createdById], references: [id])
+  createdById String
+
+  data            Json // exigences couvertes / écarts (validés côté serveur)
+  gridSnapshot    Json // copie de la grille utilisée pour ce matching
+  profileSnapshot Json // instantané du profil utilisé (traçabilité spec 10)
+  model           String
+
+  createdAt DateTime @default(now())
+
+  @@index([tenderId, createdAt])
 }
 
 // Grille de conformité extraite par LLM — auditable : l'utilisateur peut la

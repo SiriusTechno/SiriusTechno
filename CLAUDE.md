@@ -8,7 +8,7 @@ Le cœur du produit est le moteur de matching profil ↔ exigences de l'AO
 
 1. ✅ Schéma de données (spec 4.1) + CRUD profils — `backend/`
 2. ✅ Extraction AO + grille de conformité (spec 5) — `backend/src/tenders/`
-3. ⬜ Moteur de matching (spec 6)
+3. ✅ Moteur de matching (spec 6) — `backend/src/matching/`
 4. ⬜ Génération des livrables (spec 7) — un document d'abord
 5. ⬜ Export Word + relecture (spec 8)
 
@@ -41,6 +41,7 @@ npm run build
 - Chaque modification de profil est journalisée dans `ProfileChangeLog` (traçabilité, spec 10).
 - La grille de conformité est auditable : la sortie brute du LLM reste dans `ComplianceGrid.originalData`, les corrections utilisateur vont dans `data` (`editedByUser`).
 - Le LLM ne fait qu'extraire (jamais rédiger) à cette étape — appels extraction/génération séparés (spec 9).
+- Matching anti-hallucination : le LLM ne peut citer que des IDs d'éléments réels du profil ; `MatchingService.sanitize` retire tout ID inventé et requalifie l'exigence. Chaque rapport garde l'instantané du profil et de la grille utilisés (`MatchingReport`).
 
 ## Décisions en attente (spec section 11)
 
