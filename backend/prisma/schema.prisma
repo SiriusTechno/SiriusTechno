@@ -1,0 +1,338 @@
+// Schéma de données — voir docs/spec.md section 4.1
+// Architecture multi-comptes / multi-profils (spec section 2)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Comptes utilisateurs
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profiles   CompanyProfile[]
+  files      StoredFile[]
+  changeLogs ProfileChangeLog[]
+}
+
+// ---------------------------------------------------------------------------
+// A. Identité de l'entreprise
+// ---------------------------------------------------------------------------
+
+enum ProfileStatus {
+  DRAFT // en cours de saisie guidée, pas encore confirmé
+  ACTIVE // confirmé après récapitulatif
+  ARCHIVED
+}
+
+model CompanyProfile {
+  id      String @id @default(uuid())
+  owner   User   @relation(fields: [ownerId], references: [id])
+  ownerId String
+
+  status ProfileStatus @default(DRAFT)
+
+  // Identité
+  legalName           String // raison sociale
+  tradeName           String? // nom commercial
+  tradeRegisterNumber String? // registre de commerce
+  nccNumber           String? // numéro NCC
+  headOfficeAddress   String? // siège social
+  phone               String?
+  email               String?
+  logoFile            StoredFile? @relation("ProfileLogo", fields: [logoFileId], references: [id])
+  logoFileId          String?     @unique
+
+  // Horodatage de dernière mise à jour par section (spec section 4.2)
+  identityUpdatedAt   DateTime?
+  financesUpdatedAt   DateTime?
+  experienceUpdatedAt DateTime?
+  equipmentUpdatedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isoCertifications IsoCertification[]
+  financialYears    FinancialYear[]
+  projects          ReferenceProject[]
+  personnel         PersonnelMember[]
+  equipment         EquipmentItem[]
+  files             StoredFile[]       @relation("ProfileFiles")
+  changeLogs        ProfileChangeLog[]
+}
+
+model IsoCertification {
+  id        String         @id @default(uuid())
+  profile   CompanyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String
+
+  name           String // nom de la certification
+  standard       String // norme (ex: ISO 9001)
+  certifyingBody String? // organisme certificateur
+  obtainedAt     DateTime?
+  expiresAt      DateTime?
+
+  certificateFile   StoredFile? @relation(fields: [certificateFileId], references: [id])
+  certificateFileId String?     @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// B. Informations financières — historique versionné (spec 4.1.B)
+// Une mise à jour d'un exercice crée une nouvelle version, sans écraser
+// l'ancienne. Une seule version `isCurrent` par (profil, exercice).
+// ---------------------------------------------------------------------------
+
+model FinancialYear {
+  id        String         @id @default(uuid())
+  profile   CompanyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String
+
+  fiscalYear Int // ex: 2024
+  revenue    Decimal @db.Decimal(18, 2) // chiffre d'affaires
+  currency   String  @default("XOF")
+
+  balanceSheetFile      StoredFile? @relation("BalanceSheet", fields: [balanceSheetFileId], references: [id])
+  balanceSheetFileId    String?     @unique
+  bankAttestationFile   StoredFile? @relation("BankAttestation", fields: [bankAttestationFileId], references: [id])
+  bankAttestationFileId String?     @unique
+  taxClearanceFile      StoredFile? @relation("TaxClearance", fields: [taxClearanceFileId], references: [id]) // quitus de non redevance
+  taxClearanceFileId    String?     @unique
+
+  version   Int     @default(1)
+  isCurrent Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, fiscalYear, version])
+  @@index([profileId, fiscalYear, isCurrent])
+}
+
+// ---------------------------------------------------------------------------
+// C. Expérience & projets / Personnel
+// ---------------------------------------------------------------------------
+
+model ReferenceProject {
+  id        String         @id @default(uuid())
+  profile   CompanyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String
+
+  title                String
+  contractingAuthority String? // maître d'ouvrage
+  workType             String? // type de travaux
+  amount               Decimal?  @db.Decimal(18, 2)
+  currency             String    @default("XOF")
+  startDate            DateTime?
+  endDate              DateTime? // durée calculée côté API à partir de start/end
+  description          String?
+
+  photos ProjectPhoto[]
+
+  finalAcceptanceFile   StoredFile? @relation("FinalAcceptance", fields: [finalAcceptanceFileId], references: [id]) // PV de réception définitive
+  finalAcceptanceFileId String?     @unique
+  goodExecutionFile     StoredFile? @relation("GoodExecution", fields: [goodExecutionFileId], references: [id]) // attestation de bonne exécution
+  goodExecutionFileId   String?     @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model ProjectPhoto {
+  id        String           @id @default(uuid())
+  project   ReferenceProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  file      StoredFile       @relation(fields: [fileId], references: [id])
+  fileId    String           @unique
+  caption   String?
+  createdAt DateTime         @default(now())
+}
+
+model PersonnelMember {
+  id        String         @id @default(uuid())
+  profile   CompanyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String
+
+  lastName          String
+  firstName         String
+  position          String // fonction
+  experienceSummary String? // expérience détaillée
+
+  photoFile   StoredFile? @relation("PersonnelPhoto", fields: [photoFileId], references: [id])
+  photoFileId String?     @unique
+  cvFile      StoredFile? @relation("PersonnelCv", fields: [cvFileId], references: [id])
+  cvFileId    String?     @unique
+
+  diplomas       Diploma[]
+  certifications PersonnelCertification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+model Diploma {
+  id          String          @id @default(uuid())
+  personnel   PersonnelMember @relation(fields: [personnelId], references: [id], onDelete: Cascade)
+  personnelId String
+
+  title       String // intitulé
+  institution String? // établissement
+  year        Int?
+
+  file   StoredFile? @relation(fields: [fileId], references: [id])
+  fileId String?     @unique
+
+  createdAt DateTime @default(now())
+}
+
+model PersonnelCertification {
+  id          String          @id @default(uuid())
+  personnel   PersonnelMember @relation(fields: [personnelId], references: [id], onDelete: Cascade)
+  personnelId String
+
+  name        String
+  issuingBody String? // organisme
+  obtainedAt  DateTime?
+  expiresAt   DateTime?
+
+  file   StoredFile? @relation(fields: [fileId], references: [id])
+  fileId String?     @unique
+
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// D. Matériel et équipements
+// ---------------------------------------------------------------------------
+
+enum OwnershipStatus {
+  OWNED // propriété
+  RENTED // location
+}
+
+model EquipmentItem {
+  id        String         @id @default(uuid())
+  profile   CompanyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String
+
+  type               String
+  ownershipStatus    OwnershipStatus @default(OWNED)
+  brand              String?
+  model              String?
+  capacity           String?
+  acquisitionYear    Int?
+  serialNumber       String?
+  registrationNumber String? // immatriculation
+
+  photoFile            StoredFile? @relation("EquipmentPhoto", fields: [photoFileId], references: [id])
+  photoFileId          String?     @unique
+  ownershipProofFile   StoredFile? @relation("OwnershipProof", fields: [ownershipProofFileId], references: [id]) // attestation de propriété
+  ownershipProofFileId String?     @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+// ---------------------------------------------------------------------------
+// Fichiers — métadonnées ; le contenu vit dans le stockage objet (spec 4.3)
+// ---------------------------------------------------------------------------
+
+enum FileCategory {
+  LOGO
+  ISO_CERTIFICATE
+  BALANCE_SHEET
+  BANK_ATTESTATION
+  TAX_CLEARANCE
+  PROJECT_PHOTO
+  FINAL_ACCEPTANCE
+  GOOD_EXECUTION
+  PERSONNEL_PHOTO
+  CV
+  DIPLOMA
+  PERSONNEL_CERTIFICATE
+  EQUIPMENT_PHOTO
+  OWNERSHIP_PROOF
+  OTHER
+}
+
+model StoredFile {
+  id      String  @id @default(uuid())
+  owner   User    @relation(fields: [ownerId], references: [id])
+  ownerId String
+
+  profile   CompanyProfile? @relation("ProfileFiles", fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String?
+
+  category     FileCategory @default(OTHER)
+  storageKey   String       @unique // clé dans le stockage objet (MinIO/S3 ou disque local en dev)
+  originalName String
+  mimeType     String
+  size         Int
+
+  createdAt DateTime @default(now())
+
+  // relations inverses (liens 1-1 depuis les entités métier)
+  logoOfProfile        CompanyProfile?         @relation("ProfileLogo")
+  isoCertification     IsoCertification?
+  balanceSheetOf       FinancialYear?          @relation("BalanceSheet")
+  bankAttestationOf    FinancialYear?          @relation("BankAttestation")
+  taxClearanceOf       FinancialYear?          @relation("TaxClearance")
+  projectPhoto         ProjectPhoto?
+  finalAcceptanceOf    ReferenceProject?       @relation("FinalAcceptance")
+  goodExecutionOf      ReferenceProject?       @relation("GoodExecution")
+  personnelPhotoOf     PersonnelMember?        @relation("PersonnelPhoto")
+  cvOf                 PersonnelMember?        @relation("PersonnelCv")
+  diploma              Diploma?
+  personnelCertificate PersonnelCertification?
+  equipmentPhotoOf     EquipmentItem?          @relation("EquipmentPhoto")
+  ownershipProofOf     EquipmentItem?          @relation("OwnershipProof")
+
+  @@index([profileId])
+}
+
+// ---------------------------------------------------------------------------
+// Traçabilité — historique des modifications par section (spec 4.2 et 10)
+// ---------------------------------------------------------------------------
+
+enum ProfileSection {
+  IDENTITY
+  FINANCES
+  EXPERIENCE
+  PERSONNEL
+  EQUIPMENT
+}
+
+model ProfileChangeLog {
+  id        String         @id @default(uuid())
+  profile   CompanyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String
+  user      User           @relation(fields: [userId], references: [id])
+  userId    String
+
+  section ProfileSection
+  action  String // ex: "create", "update", "delete", "confirm"
+  details Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([profileId, createdAt])
+}
