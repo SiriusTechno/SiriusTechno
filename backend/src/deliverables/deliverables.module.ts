@@ -2,9 +2,16 @@ import { Module } from '@nestjs/common';
 import { AnalysisGenerationService } from './analysis-generation.service';
 import { DeliverablesController } from './deliverables.controller';
 import { DeliverablesService } from './deliverables.service';
+import { DocxExportService } from './docx-export.service';
+import { TechnicalGenerationService } from './technical-generation.service';
 
 @Module({
   controllers: [DeliverablesController],
-  providers: [DeliverablesService, AnalysisGenerationService],
+  providers: [
+    DeliverablesService,
+    AnalysisGenerationService,
+    TechnicalGenerationService,
+    DocxExportService,
+  ],
 })
 export class DeliverablesModule {}

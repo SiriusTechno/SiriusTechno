@@ -422,7 +422,13 @@ model Deliverable {
   content  Json // sections structurées (source de vérité)
   markdown String // rendu lisible, dérivé de content
 
+  // Relecture avant export final (spec 8) : le document peut être édité,
+  // puis validé — l'export Word signale les documents non relus.
+  editedByUser Boolean   @default(false)
+  reviewedAt   DateTime?
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenderId, type, createdAt])
 }

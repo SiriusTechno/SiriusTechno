@@ -9,8 +9,8 @@ Le cœur du produit est le moteur de matching profil ↔ exigences de l'AO
 1. ✅ Schéma de données (spec 4.1) + CRUD profils — `backend/`
 2. ✅ Extraction AO + grille de conformité (spec 5) — `backend/src/tenders/`
 3. ✅ Moteur de matching (spec 6) — `backend/src/matching/`
-4. 🟡 Génération des livrables (spec 7) — document d'analyse 7.1 ✅ (`backend/src/deliverables/`) ; proposition technique 7.2 ⬜ ; proposition commerciale 7.3 bloquée (décision bordereau de prix)
-5. ⬜ Export Word + relecture (spec 8)
+4. 🟡 Génération des livrables (spec 7) — document d'analyse 7.1 ✅ + proposition technique 7.2 ✅ (`backend/src/deliverables/`) ; proposition commerciale 7.3 bloquée (décision bordereau de prix)
+5. 🟡 Export Word + relecture (spec 8) — docx ✅, édition/validation ✅ (`REQUIRE_REVIEW_BEFORE_EXPORT`) ; envoi email ⬜ ; charte graphique par profil ⬜
 
 ## Stack
 
