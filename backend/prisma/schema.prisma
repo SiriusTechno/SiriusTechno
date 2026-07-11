@@ -69,6 +69,7 @@ model CompanyProfile {
   projects          ReferenceProject[]
   personnel         PersonnelMember[]
   equipment         EquipmentItem[]
+  tenders           Tender[]
   files             StoredFile[]       @relation("ProfileFiles")
   changeLogs        ProfileChangeLog[]
 }
@@ -257,6 +258,7 @@ model EquipmentItem {
 // ---------------------------------------------------------------------------
 
 enum FileCategory {
+  TENDER_DOCUMENT
   LOGO
   ISO_CERTIFICATE
   BALANCE_SHEET
@@ -305,8 +307,61 @@ model StoredFile {
   personnelCertificate PersonnelCertification?
   equipmentPhotoOf     EquipmentItem?          @relation("EquipmentPhoto")
   ownershipProofOf     EquipmentItem?          @relation("OwnershipProof")
+  tenderSource         Tender?
 
   @@index([profileId])
+}
+
+// ---------------------------------------------------------------------------
+// Appels d'offres — import, extraction, grille de conformité (spec 5)
+// ---------------------------------------------------------------------------
+
+enum TenderStatus {
+  UPLOADED // document reçu, texte pas encore extrait
+  TEXT_EXTRACTED // texte extrait, prêt pour l'analyse LLM
+  NEEDS_OCR // PDF scanné détecté : OCR requis (spec 5.1)
+  GRID_READY // grille de conformité générée
+  FAILED // extraction ou analyse en échec (voir extractionError)
+}
+
+model Tender {
+  id        String         @id @default(uuid())
+  profile   CompanyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String
+
+  title  String?
+  status TenderStatus @default(UPLOADED)
+
+  sourceFile   StoredFile @relation(fields: [sourceFileId], references: [id])
+  sourceFileId String     @unique
+
+  extractedText   String? // texte brut extrait du document
+  textCharCount   Int?
+  pageCount       Int?
+  extractionError String?
+
+  grid ComplianceGrid?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId])
+}
+
+// Grille de conformité extraite par LLM — auditable : l'utilisateur peut la
+// corriger avant génération, et la sortie brute du LLM est conservée (spec 5.2)
+model ComplianceGrid {
+  id       String @id @default(uuid())
+  tender   Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  tenderId String @unique
+
+  data         Json // version courante (éventuellement corrigée par l'utilisateur)
+  originalData Json // sortie brute du LLM, jamais modifiée
+  editedByUser Boolean @default(false)
+  model        String // modèle LLM utilisé pour l'extraction
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------

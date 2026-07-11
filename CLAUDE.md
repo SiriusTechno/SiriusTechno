@@ -7,7 +7,7 @@ Le cœur du produit est le moteur de matching profil ↔ exigences de l'AO
 ## Feuille de route (itérations, spec §Note d'usage)
 
 1. ✅ Schéma de données (spec 4.1) + CRUD profils — `backend/`
-2. ⬜ Extraction AO + grille de conformité (spec 5)
+2. ✅ Extraction AO + grille de conformité (spec 5) — `backend/src/tenders/`
 3. ⬜ Moteur de matching (spec 6)
 4. ⬜ Génération des livrables (spec 7) — un document d'abord
 5. ⬜ Export Word + relecture (spec 8)
@@ -16,7 +16,9 @@ Le cœur du produit est le moteur de matching profil ↔ exigences de l'AO
 
 - Backend : NestJS + PostgreSQL + Prisma (`backend/`)
 - Stockage fichiers : MinIO/S3 en prod, disque local en dev (`STORAGE_DRIVER`)
-- À venir : BullMQ + Redis (tâches longues), API Claude (extraction + génération), docxtemplater (Word)
+- Extraction AO : mammoth (docx) + pdf-parse (PDF texte), détection des PDF scannés (statut `NEEDS_OCR`, Tesseract à intégrer)
+- IA : API Claude (`@anthropic-ai/sdk`, modèle `claude-opus-4-8` par défaut, sortie structurée par JSON schema) — nécessite `ANTHROPIC_API_KEY`
+- À venir : BullMQ + Redis (tâches longues), docxtemplater (Word)
 
 ## Commandes (dans `backend/`)
 
@@ -37,6 +39,8 @@ npm run build
 - Tout accès à une ressource passe par `ProfilesService.assertOwnership`.
 - Les fichiers uploadés ne sont jamais servis par lien public : uniquement via `GET /api/files/:id/download` après contrôle d'accès.
 - Chaque modification de profil est journalisée dans `ProfileChangeLog` (traçabilité, spec 10).
+- La grille de conformité est auditable : la sortie brute du LLM reste dans `ComplianceGrid.originalData`, les corrections utilisateur vont dans `data` (`editedByUser`).
+- Le LLM ne fait qu'extraire (jamais rédiger) à cette étape — appels extraction/génération séparés (spec 9).
 
 ## Décisions en attente (spec section 11)
 

@@ -9,7 +9,7 @@ Application qui, à partir d'un **profil d'entreprise structuré** et d'un **doc
 | Itération | Contenu | État |
 |---|---|---|
 | 1 | Schéma de données + CRUD profils (auth, identité, finances versionnées, projets, personnel, matériel, fichiers) | ✅ |
-| 2 | Import AO + extraction de la grille de conformité | ⬜ |
+| 2 | Import AO + extraction de la grille de conformité (PDF/Word, détection scan, analyse IA auditable) | ✅ |
 | 3 | Moteur de matching profil ↔ exigences | ⬜ |
 | 4 | Génération des livrables (IA) | ⬜ |
 | 5 | Export Word + relecture + envoi email | ⬜ |
@@ -52,6 +52,19 @@ Toutes les routes (sauf `/auth/*`) exigent un header `Authorization: Bearer <tok
 - `POST/GET/PATCH/DELETE /api/profiles/:id/projects` + `POST/DELETE .../:id/photos` — projets de référence
 - `POST/GET/PATCH/DELETE /api/profiles/:id/personnel` + diplômes et certifications par membre
 - `POST/GET/PATCH/DELETE /api/profiles/:id/equipment` — matériel
+
+### Appels d'offres (itération 2)
+| Méthode | Route | Description |
+|---|---|---|
+| POST | `/api/tenders` | Créer un AO (`profileId`, `fileId` d'un PDF/Word uploadé) — extrait le texte immédiatement |
+| GET | `/api/tenders?profileId=` | Lister mes AO |
+| GET | `/api/tenders/:id` | Détail (texte extrait + grille) |
+| POST | `/api/tenders/:id/extract` | Relancer l'extraction de texte |
+| POST | `/api/tenders/:id/analyze` | Analyse IA → grille de conformité (nécessite `ANTHROPIC_API_KEY`) |
+| PATCH | `/api/tenders/:id/grid` | Corriger la grille (la sortie brute du LLM est conservée) |
+| DELETE | `/api/tenders/:id` | Supprimer |
+
+Statuts : `UPLOADED` → `TEXT_EXTRACTED` → `GRID_READY` ; `NEEDS_OCR` si PDF scanné détecté (OCR à venir) ; `FAILED` avec `extractionError` en français.
 
 ### Fichiers (documents sensibles)
 - `POST /api/files?profileId=&category=` — upload multipart (`file`), types autorisés : PDF, Word, images ; max 25 Mo
