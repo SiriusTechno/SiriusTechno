@@ -11,7 +11,7 @@ Application qui, à partir d'un **profil d'entreprise structuré** et d'un **doc
 | 1 | Schéma de données + CRUD profils (auth, identité, finances versionnées, projets, personnel, matériel, fichiers) | ✅ |
 | 2 | Import AO + extraction de la grille de conformité (PDF/Word, détection scan, analyse IA auditable) | ✅ |
 | 3 | Moteur de matching profil ↔ exigences (couvertures/écarts, anti-hallucination, rapports traçables) | ✅ |
-| 4 | Génération des livrables (IA) | ⬜ |
+| 4 | Génération des livrables (IA) — document d'analyse go/no-go ✅ ; propositions technique et commerciale ⬜ | 🟡 |
 | 5 | Export Word + relecture + envoi email | ⬜ |
 
 ## Démarrage rapide
@@ -75,6 +75,16 @@ Statuts : `UPLOADED` → `TEXT_EXTRACTED` → `GRID_READY` ; `NEEDS_OCR` si PDF 
 | GET | `/api/tenders/:id/matching/:reportId` | Un rapport précis |
 
 Chaque rapport contient : le statut de chaque exigence (`COVERED`/`PARTIAL`/`NOT_COVERED`), les éléments du profil qui la couvrent (IDs validés côté serveur — aucun élément inventé), la justification, l'écart, un résumé chiffré, plus l'instantané du profil et de la grille utilisés (traçabilité).
+
+### Livrables (itération 4 — document d'analyse)
+| Méthode | Route | Description |
+|---|---|---|
+| POST | `/api/tenders/:id/deliverables/analysis` | Générer le document d'analyse (forces/faiblesses, écarts, go/no-go) à partir du dernier matching |
+| GET | `/api/tenders/:id/deliverables` | Lister les livrables générés |
+| GET | `/api/tenders/:id/deliverables/:id` | Contenu structuré + Markdown |
+| GET | `/api/tenders/:id/deliverables/:id/markdown` | Rendu Markdown brut (relecture) |
+
+Le document cite ses sources (éléments du profil), ne masque jamais un écart, et trace le rapport de matching utilisé.
 
 ### Fichiers (documents sensibles)
 - `POST /api/files?profileId=&category=` — upload multipart (`file`), types autorisés : PDF, Word, images ; max 25 Mo

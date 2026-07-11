@@ -26,6 +26,7 @@ model User {
   files           StoredFile[]
   changeLogs      ProfileChangeLog[]
   matchingReports MatchingReport[]
+  Deliverable     Deliverable[]
 }
 
 // ---------------------------------------------------------------------------
@@ -278,8 +279,8 @@ enum FileCategory {
 }
 
 model StoredFile {
-  id      String  @id @default(uuid())
-  owner   User    @relation(fields: [ownerId], references: [id])
+  id      String @id @default(uuid())
+  owner   User   @relation(fields: [ownerId], references: [id])
   ownerId String
 
   profile   CompanyProfile? @relation("ProfileFiles", fields: [profileId], references: [id], onDelete: Cascade)
@@ -344,8 +345,9 @@ model Tender {
   grid            ComplianceGrid?
   matchingReports MatchingReport[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  Deliverable Deliverable[]
 
   @@index([profileId])
 }
@@ -369,6 +371,8 @@ model MatchingReport {
   profileSnapshot Json // instantané du profil utilisé (traçabilité spec 10)
   model           String
 
+  deliverables Deliverable[]
+
   createdAt DateTime @default(now())
 
   @@index([tenderId, createdAt])
@@ -388,6 +392,39 @@ model ComplianceGrid {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Livrables générés (spec 7) — un document d'abord : l'analyse du profil
+// (7.1), pour valider le pipeline avant la proposition technique/commerciale.
+// ---------------------------------------------------------------------------
+
+enum DeliverableType {
+  ANALYSIS // document d'analyse du profil, usage interne (spec 7.1)
+  TECHNICAL_PROPOSAL // spec 7.2 — à venir
+  COMMERCIAL_PROPOSAL // spec 7.3 — bloqué par la décision bordereau de prix
+}
+
+model Deliverable {
+  id       String @id @default(uuid())
+  tender   Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  tenderId String
+
+  type DeliverableType
+
+  // Traçabilité (spec 10) : généré par qui, à partir de quel matching
+  matchingReport   MatchingReport @relation(fields: [matchingReportId], references: [id])
+  matchingReportId String
+  createdBy        User           @relation(fields: [createdById], references: [id])
+  createdById      String
+  model            String
+
+  content  Json // sections structurées (source de vérité)
+  markdown String // rendu lisible, dérivé de content
+
+  createdAt DateTime @default(now())
+
+  @@index([tenderId, type, createdAt])
 }
 
 // ---------------------------------------------------------------------------
