@@ -6,6 +6,7 @@ describe('DeliverablesService.extractGaps — signalement avant génération (sp
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
     { get: () => undefined } as never,
   );
 

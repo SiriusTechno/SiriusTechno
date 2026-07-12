@@ -10,7 +10,7 @@ Le cœur du produit est le moteur de matching profil ↔ exigences de l'AO
 2. ✅ Extraction AO + grille de conformité (spec 5) — `backend/src/tenders/`
 3. ✅ Moteur de matching (spec 6) — `backend/src/matching/`
 4. ✅ Génération des livrables (spec 7) — analyse 7.1, technique 7.2, commerciale 7.3 (`backend/src/deliverables/`) ; bordereau de prix importé via template Excel (`backend/src/price-schedule/`)
-5. 🟡 Export Word + relecture (spec 8) — docx ✅, édition/validation ✅ (`REQUIRE_REVIEW_BEFORE_EXPORT`) ; envoi email ⬜ ; charte graphique par profil ⬜
+5. 🟡 Export Word + relecture (spec 8) — docx ✅, édition/validation ✅ (`REQUIRE_REVIEW_BEFORE_EXPORT`), envoi email ✅ (nodemailer, journal `DeliverableEmail`) ; charte graphique par profil ⬜
 
 ## Stack
 

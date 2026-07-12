@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DeliverableType, Prisma } from '@prisma/client';
+import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnalysisDocument } from './analysis-document.schema';
 import { AnalysisGenerationService } from './analysis-generation.service';
@@ -39,6 +40,7 @@ export class DeliverablesService {
     private readonly analysisGeneration: AnalysisGenerationService,
     private readonly technicalGeneration: TechnicalGenerationService,
     private readonly docxExport: DocxExportService,
+    private readonly mail: MailService,
     config: ConfigService,
   ) {
     this.requireReviewBeforeExport =
@@ -241,6 +243,47 @@ export class DeliverablesService {
     });
   }
 
+  private async buildDocx(
+    deliverable: { id: string; type: DeliverableType; content: unknown },
+    companyName: string,
+  ): Promise<{ filename: string; buffer: Buffer }> {
+    let buffer: Buffer;
+    let slug: string;
+    switch (deliverable.type) {
+      case DeliverableType.ANALYSIS:
+        buffer = await this.docxExport.renderAnalysis(
+          deliverable.content as AnalysisDocument,
+          companyName,
+        );
+        slug = 'analyse';
+        break;
+      case DeliverableType.TECHNICAL_PROPOSAL:
+        buffer = await this.docxExport.renderTechnical(
+          deliverable.content as TechnicalProposal,
+          companyName,
+        );
+        slug = 'proposition-technique';
+        break;
+      case DeliverableType.COMMERCIAL_PROPOSAL:
+        buffer = await this.docxExport.renderCommercial(
+          deliverable.content as CommercialProposal,
+        );
+        slug = 'proposition-commerciale';
+        break;
+    }
+    return { filename: `${slug}-${deliverable.id.slice(0, 8)}.docx`, buffer };
+  }
+
+  private assertReviewedForDiffusion(deliverable: {
+    reviewedAt: Date | null;
+  }): void {
+    if (this.requireReviewBeforeExport && !deliverable.reviewedAt) {
+      throw new ConflictException(
+        "Ce document doit être relu et validé avant l'export ou l'envoi (POST .../review)",
+      );
+    }
+  }
+
   /** Export Word (spec 8). */
   async exportDocx(
     userId: string,
@@ -248,45 +291,95 @@ export class DeliverablesService {
     deliverableId: string,
   ): Promise<{ filename: string; buffer: Buffer; reviewed: boolean }> {
     const deliverable = await this.findOne(userId, tenderId, deliverableId);
-    if (this.requireReviewBeforeExport && !deliverable.reviewedAt) {
-      throw new ConflictException(
-        "Ce document doit être relu et validé avant l'export (POST .../review)",
-      );
-    }
+    this.assertReviewedForDiffusion(deliverable);
     const tender = await this.prisma.tender.findUniqueOrThrow({
       where: { id: tenderId },
       include: { profile: true },
     });
+    const { filename, buffer } = await this.buildDocx(
+      deliverable,
+      tender.profile.legalName,
+    );
+    return { filename, buffer, reviewed: !!deliverable.reviewedAt };
+  }
 
-    let buffer: Buffer;
-    let slug: string;
-    switch (deliverable.type) {
-      case DeliverableType.ANALYSIS:
-        buffer = await this.docxExport.renderAnalysis(
-          deliverable.content as unknown as AnalysisDocument,
-          tender.profile.legalName,
-        );
-        slug = 'analyse';
-        break;
-      case DeliverableType.TECHNICAL_PROPOSAL:
-        buffer = await this.docxExport.renderTechnical(
-          deliverable.content as unknown as TechnicalProposal,
-          tender.profile.legalName,
-        );
-        slug = 'proposition-technique';
-        break;
-      case DeliverableType.COMMERCIAL_PROPOSAL:
-        buffer = await this.docxExport.renderCommercial(
-          deliverable.content as unknown as CommercialProposal,
-        );
-        slug = 'proposition-commerciale';
-        break;
+  /**
+   * Envoi des livrables par email en pièces jointes Word (spec 8).
+   * Chaque envoi est journalisé : qui, quoi, à qui, quand (spec 10).
+   */
+  async sendByEmail(
+    userId: string,
+    tenderId: string,
+    dto: {
+      deliverableIds: string[];
+      to: string[];
+      cc?: string[];
+      subject?: string;
+      message?: string;
+    },
+  ) {
+    const tender = await this.assertOwnedTender(userId, tenderId);
+
+    const deliverables = await this.prisma.deliverable.findMany({
+      where: { id: { in: dto.deliverableIds }, tenderId },
+    });
+    if (deliverables.length !== dto.deliverableIds.length) {
+      throw new NotFoundException(
+        "Un ou plusieurs livrables sont introuvables pour cet appel d'offres",
+      );
     }
-    return {
-      filename: `${slug}-${deliverableId.slice(0, 8)}.docx`,
-      buffer,
-      reviewed: !!deliverable.reviewedAt,
-    };
+    deliverables.forEach((d) => this.assertReviewedForDiffusion(d));
+
+    const attachments = await Promise.all(
+      deliverables.map((d) => this.buildDocx(d, tender.profile.legalName)),
+    );
+
+    const subject =
+      dto.subject ??
+      `Proposition — ${tender.title ?? "appel d'offres"} — ${tender.profile.legalName}`;
+    const message =
+      dto.message ??
+      `Bonjour,\n\nVeuillez trouver ci-joint ${
+        attachments.length > 1 ? 'nos documents' : 'notre document'
+      } relatif${attachments.length > 1 ? 's' : ''} à l'appel d'offres « ${
+        tender.title ?? ''
+      } ».\n\nNous restons à votre disposition pour toute précision.\n\nCordialement,\n${tender.profile.legalName}`;
+
+    const { messageId } = await this.mail.send({
+      to: dto.to,
+      cc: dto.cc,
+      subject,
+      text: message,
+      attachments: attachments.map((a) => ({
+        filename: a.filename,
+        content: a.buffer,
+      })),
+    });
+
+    return this.prisma.deliverableEmail.create({
+      data: {
+        tenderId,
+        deliverableIds: dto.deliverableIds,
+        recipients: dto.to,
+        cc: dto.cc ?? [],
+        subject,
+        message,
+        sentById: userId,
+        messageId,
+      },
+    });
+  }
+
+  /** Historique des envois (traçabilité spec 10). */
+  async emailHistory(userId: string, tenderId: string) {
+    await this.assertOwnedTender(userId, tenderId);
+    return this.prisma.deliverableEmail.findMany({
+      where: { tenderId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        sentBy: { select: { id: true, email: true, fullName: true } },
+      },
+    });
   }
 
   private renderMarkdown(

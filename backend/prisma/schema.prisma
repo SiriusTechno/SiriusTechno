@@ -22,12 +22,13 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  profiles        CompanyProfile[]
-  files           StoredFile[]
-  changeLogs      ProfileChangeLog[]
-  matchingReports MatchingReport[]
-  Deliverable     Deliverable[]
-  PriceSchedule   PriceSchedule[]
+  profiles         CompanyProfile[]
+  files            StoredFile[]
+  changeLogs       ProfileChangeLog[]
+  matchingReports  MatchingReport[]
+  Deliverable      Deliverable[]
+  PriceSchedule    PriceSchedule[]
+  DeliverableEmail DeliverableEmail[]
 }
 
 // ---------------------------------------------------------------------------
@@ -347,10 +348,11 @@ model Tender {
   grid            ComplianceGrid?
   matchingReports MatchingReport[]
 
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  Deliverable   Deliverable[]
-  PriceSchedule PriceSchedule[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  Deliverable      Deliverable[]
+  PriceSchedule    PriceSchedule[]
+  DeliverableEmail DeliverableEmail[]
 
   @@index([profileId])
 }
@@ -475,6 +477,32 @@ model PriceSchedule {
 
   @@unique([tenderId, version])
   @@index([tenderId, isCurrent])
+}
+
+// ---------------------------------------------------------------------------
+// Envoi des livrables par email (spec 8) — chaque envoi est journalisé :
+// qui a envoyé quel document, à qui, quand (traçabilité spec 10).
+// ---------------------------------------------------------------------------
+
+model DeliverableEmail {
+  id       String @id @default(uuid())
+  tender   Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  tenderId String
+
+  deliverableIds String[] // livrables joints à cet envoi
+  recipients     String[] // destinataires (À)
+  cc             String[]
+  subject        String
+  message        String
+
+  sentBy   User   @relation(fields: [sentById], references: [id])
+  sentById String
+
+  messageId String? // identifiant SMTP retourné par le serveur
+
+  createdAt DateTime @default(now())
+
+  @@index([tenderId, createdAt])
 }
 
 // ---------------------------------------------------------------------------

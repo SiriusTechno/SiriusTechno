@@ -12,7 +12,7 @@ Application qui, à partir d'un **profil d'entreprise structuré** et d'un **doc
 | 2 | Import AO + extraction de la grille de conformité (PDF/Word, détection scan, analyse IA auditable) | ✅ |
 | 3 | Moteur de matching profil ↔ exigences (couvertures/écarts, anti-hallucination, rapports traçables) | ✅ |
 | 4 | Génération des livrables — analyse go/no-go ✅, proposition technique ✅, proposition commerciale (bordereau importé) ✅ | ✅ |
-| 5 | Export Word ✅ + relecture (édition/validation) ✅ ; envoi email et charte graphique ⬜ | 🟡 |
+| 5 | Export Word ✅, relecture ✅, envoi email ✅ ; charte graphique ⬜ | 🟡 |
 
 ## Démarrage rapide
 
@@ -96,6 +96,8 @@ Chaque rapport contient : le statut de chaque exigence (`COVERED`/`PARTIAL`/`NOT
 | PATCH | `/api/tenders/:id/deliverables/:id` | Corriger le contenu (relecture) — invalide la validation précédente |
 | POST | `/api/tenders/:id/deliverables/:id/review` | Valider la relecture |
 | GET | `/api/tenders/:id/deliverables/:id/docx` | **Export Word** (.docx) — en-tête `X-Relecture-Validee` ; export bloqué si `REQUIRE_REVIEW_BEFORE_EXPORT=true` et document non validé |
+| POST | `/api/tenders/:id/deliverables/send-email` | **Envoi par email** : `deliverableIds` (joints en .docx), `to`, `cc?`, `subject?`, `message?` — sujet et corps par défaut en français ; nécessite la config SMTP |
+| GET | `/api/tenders/:id/deliverables/emails` | Historique des envois (qui, quoi, à qui, quand) |
 
 Les documents citent leurs sources (éléments du profil), ne masquent jamais un écart, et tracent le rapport de matching utilisé. La proposition technique suit le plan imposé par l'AO s'il existe, sinon le plan standard (présentation, compréhension du besoin, méthodologie, moyens humains/matériels, références, planning).
 

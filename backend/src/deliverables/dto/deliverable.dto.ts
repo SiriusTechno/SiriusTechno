@@ -1,9 +1,13 @@
 import {
+  ArrayNotEmpty,
+  IsArray,
   IsBoolean,
+  IsEmail,
   IsInt,
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
@@ -38,6 +42,32 @@ export class GenerateCommercialDto {
   @IsOptional()
   @IsString()
   executionDelay?: string;
+}
+
+export class SendDeliverablesEmailDto {
+  /** Livrables à joindre (pièces jointes Word). */
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUUID(undefined, { each: true })
+  deliverableIds!: string[];
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsEmail({}, { each: true })
+  to!: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true })
+  cc?: string[];
+
+  @IsOptional()
+  @IsString()
+  subject?: string;
+
+  @IsOptional()
+  @IsString()
+  message?: string;
 }
 
 export class UpdateDeliverableDto {

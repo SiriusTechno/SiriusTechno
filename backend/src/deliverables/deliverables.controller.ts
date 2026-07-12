@@ -17,6 +17,7 @@ import { DeliverablesService } from './deliverables.service';
 import {
   GenerateCommercialDto,
   GenerateTechnicalDto,
+  SendDeliverablesEmailDto,
   UpdateDeliverableDto,
 } from './dto/deliverable.dto';
 
@@ -56,6 +57,25 @@ export class DeliverablesController {
     @Body() dto: GenerateCommercialDto,
   ) {
     return this.service.generateCommercial(user.userId, tenderId, dto);
+  }
+
+  /** Envoi des livrables par email en pièces jointes Word (spec 8). */
+  @Post('send-email')
+  sendEmail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tenderId', ParseUUIDPipe) tenderId: string,
+    @Body() dto: SendDeliverablesEmailDto,
+  ) {
+    return this.service.sendByEmail(user.userId, tenderId, dto);
+  }
+
+  /** Historique des envois (traçabilité spec 10). */
+  @Get('emails')
+  emailHistory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tenderId', ParseUUIDPipe) tenderId: string,
+  ) {
+    return this.service.emailHistory(user.userId, tenderId);
   }
 
   /** Relecture : correction du contenu structuré (spec 8). */
