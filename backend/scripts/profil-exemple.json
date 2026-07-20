@@ -1,0 +1,62 @@
+{
+  "identity": {
+    "legalName": "SIRIUS TECHNOLOGIES SARL",
+    "tradeName": "SIRIUS",
+    "tradeRegisterNumber": "CI-ABJ-2020-B-12345",
+    "nccNumber": "2012345A",
+    "headOfficeAddress": "Abidjan, Cocody Riviera, Côte d'Ivoire",
+    "phone": "+225 07 00 00 00 00",
+    "email": "contact@sirius-technologies.ci"
+  },
+  "financialYears": [
+    { "fiscalYear": 2023, "revenue": 120000000, "currency": "XOF" },
+    { "fiscalYear": 2024, "revenue": 180000000, "currency": "XOF" },
+    { "fiscalYear": 2025, "revenue": 250000000, "currency": "XOF" }
+  ],
+  "isoCertifications": [],
+  "projects": [
+    {
+      "title": "Réhabilitation de la route Abidjan – Grand-Bassam",
+      "contractingAuthority": "AGEROUTE",
+      "workType": "Travaux routiers",
+      "amount": 85000000,
+      "currency": "XOF",
+      "startDate": "2023-01-15",
+      "endDate": "2023-07-15",
+      "description": "Réhabilitation de 12 km de chaussée, assainissement et signalisation."
+    }
+  ],
+  "personnel": [
+    {
+      "lastName": "KOUASSI",
+      "firstName": "Jean",
+      "position": "Ingénieur génie civil",
+      "experienceSummary": "12 ans d'expérience en travaux routiers et ouvrages d'art.",
+      "diplomas": [
+        {
+          "title": "Diplôme d'Ingénieur Génie Civil",
+          "institution": "INP-HB Yamoussoukro",
+          "year": 2013
+        }
+      ]
+    }
+  ],
+  "equipment": [
+    {
+      "type": "Pelle hydraulique",
+      "ownershipStatus": "OWNED",
+      "brand": "Caterpillar",
+      "model": "320D",
+      "capacity": "20 t",
+      "acquisitionYear": 2021
+    },
+    {
+      "type": "Camion benne",
+      "ownershipStatus": "OWNED",
+      "brand": "Renault",
+      "model": "Kerax",
+      "capacity": "16 m3",
+      "acquisitionYear": 2020
+    }
+  ]
+}

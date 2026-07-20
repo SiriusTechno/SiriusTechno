@@ -14,6 +14,19 @@ Application qui, à partir d'un **profil d'entreprise structuré** et d'un **doc
 | 4 | Génération des livrables — analyse go/no-go ✅, proposition technique ✅, proposition commerciale (bordereau importé) ✅ | ✅ |
 | 5 | Export Word ✅, relecture ✅, envoi email ✅ ; charte graphique ⬜ | 🟡 |
 
+## 🚀 Tester avec vos vraies données
+
+Suivez le **[guide de test local](docs/guide-test-local.md)** : il vous amène de zéro
+jusqu'aux trois documents Word générés à partir de votre vrai profil d'entreprise et
+d'un vrai appel d'offres, via le script `backend/scripts/demo.mjs` qui déroule tout
+le parcours en commentant chaque étape.
+
+```bash
+cd backend
+cp scripts/profil-exemple.json scripts/mon-profil.json   # à remplir avec vos données
+node scripts/demo.mjs ~/Documents/mon-ao.pdf scripts/mon-profil.json
+```
+
 ## Démarrage rapide
 
 ```bash
